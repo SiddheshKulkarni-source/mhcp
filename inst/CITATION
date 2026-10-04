@@ -1,0 +1,10 @@
+bibentry(
+  bibtype = "Article",
+  title = "Pathwise Shrinkage and Probabilistic Calibration of the Multiplicative Half-Cauchy Process",
+  author = person(
+    given = "Siddhesh",
+    family = "Kulkarni"
+  ),
+  year = "2026",
+  note = "Manuscript submitted for publication"
+)

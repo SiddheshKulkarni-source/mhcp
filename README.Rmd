@@ -1,0 +1,72 @@
+---
+output: github_document
+---
+
+# mhcp
+
+`mhcp` provides tools for simulation, probability calibration,
+and effective-dimension analysis for the multiplicative
+half-Cauchy process.
+
+## Installation
+
+```r
+# install.packages("remotes")
+remotes::install_github("YOUR_GITHUB_USERNAME/mhcp")
+```
+
+## Simulation
+
+```r
+library(mhcp)
+
+set.seed(123)
+
+x <- rmhcp(
+  n = 5,
+  d = 20,
+  zeta = 0.7
+)
+
+x
+```
+
+## Probability calibration
+
+Choose `zeta` so that
+
+\[
+P(\eta_{10} \le 0.05)=0.90.
+\]
+
+```r
+calibrate_mhcp(
+  H = 10,
+  epsilon = 0.05,
+  p = 0.90
+)
+```
+
+This gives approximately
+
+```text
+zeta = 0.369
+```
+
+## Local flexibility
+
+```r
+mhcp_excursion_prob(
+  zeta = 0.7,
+  c = c(1, 2, 5)
+)
+```
+
+## Effective dimension
+
+```r
+expected_mhcp_dimension(
+  zeta = 0.369,
+  epsilon = 0.05
+)
+```

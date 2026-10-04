@@ -1,0 +1,26 @@
+Package: mhcp
+Title: Multiplicative Half-Cauchy Processes
+Version: 0.1.0
+Authors@R:
+    person(
+      given = "Siddhesh",
+      family = "Kulkarni",
+      email = "siddhesh.s.kulkarni@gmail.com",
+      role = c("aut", "cre")
+    )
+Description: Tools for simulation, probability calibration, and
+    threshold-based effective-dimension summaries for the
+    multiplicative half-Cauchy process. The package implements
+    log-scale simulation, characteristic-function inversion,
+    quantile-based prior calibration, multiplicative excursion
+    probabilities, and related utilities.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.0
