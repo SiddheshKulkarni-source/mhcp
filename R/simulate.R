@@ -1,32 +1,18 @@
 #' Simulate a Multiplicative Half-Cauchy Process
 #'
-#' Simulates realizations from the multiplicative half-Cauchy process
+#' Simulates independent trajectories from the multiplicative
+#' half-Cauchy process (MHCP).
 #'
-#' \deqn{
-#' \tilde{\eta}_1 = 1,
-#' \qquad
-#' \tilde{\eta}_h \sim C^+(0,\zeta), \quad h \ge 2,
-#' }
+#' The process is defined by eta_1 = 1 and, for h >= 2,
+#' eta_h = eta_(h-1) * tilde_eta_h, where the multiplicative
+#' increments follow a half-Cauchy distribution with scale zeta.
 #'
-#' with
+#' @param n Number of independent trajectories.
+#' @param d Number of ordered components in each trajectory.
+#' @param zeta Positive half-Cauchy scale parameter.
+#' @param log Logical. If TRUE, return log-scale trajectories.
 #'
-#' \deqn{
-#' \eta_h = \prod_{\ell=1}^h \tilde{\eta}_\ell.
-#' }
-#'
-#' Simulation is performed on the log scale for numerical stability.
-#'
-#' @param n Number of independent MHCP trajectories.
-#' @param d Number of ordered components.
-#' @param zeta Positive MHCP scale parameter.
-#' @param log Logical. If `TRUE`, return `log(eta)` instead of `eta`.
-#'
-#' @return An `n` by `d` matrix. Each row is one MHCP trajectory.
-#'
-#' @examples
-#' set.seed(1)
-#' x <- rmhcp(n = 5, d = 10, zeta = 0.7)
-#' x
+#' @return A numeric matrix with `n` rows and `d` columns.
 #'
 #' @export
 rmhcp <- function(n, d, zeta, log = FALSE) {
@@ -49,13 +35,13 @@ rmhcp <- function(n, d, zeta, log = FALSE) {
     ncol = d
   )
 
-  if (d >= 2) {
+  if (d >= 2L) {
 
     u <- abs(
       matrix(
-        stats::rcauchy(n * (d - 1)),
+        stats::rcauchy(n * (d - 1L)),
         nrow = n,
-        ncol = d - 1
+        ncol = d - 1L
       )
     )
 
@@ -67,10 +53,12 @@ rmhcp <- function(n, d, zeta, log = FALSE) {
     increments <- log(zeta) + log(u)
 
     log_eta[, 2:d] <- t(
-      apply(
-        increments,
-        1,
-        cumsum
+      vapply(
+        seq_len(n),
+        function(i) {
+          cumsum(increments[i, ])
+        },
+        numeric(d - 1L)
       )
     )
   }

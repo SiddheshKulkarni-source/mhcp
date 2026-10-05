@@ -7,38 +7,23 @@
 rmhcp(n, d, zeta, log = FALSE)
 }
 \arguments{
-\item{n}{Number of independent MHCP trajectories.}
+\item{n}{Number of independent trajectories.}
 
-\item{d}{Number of ordered components.}
+\item{d}{Number of ordered components in each trajectory.}
 
-\item{zeta}{Positive MHCP scale parameter.}
+\item{zeta}{Positive half-Cauchy scale parameter.}
 
-\item{log}{Logical. If \code{TRUE}, return \code{log(eta)} instead of \code{eta}.}
+\item{log}{Logical. If TRUE, return log-scale trajectories.}
 }
 \value{
-An \code{n} by \code{d} matrix. Each row is one MHCP trajectory.
+A numeric matrix with \code{n} rows and \code{d} columns.
 }
 \description{
-Simulates realizations from the multiplicative half-Cauchy process
+Simulates independent trajectories from the multiplicative
+half-Cauchy process (MHCP).
 }
 \details{
-\deqn{
-\tilde{\eta}_1 = 1,
-\qquad
-\tilde{\eta}_h \sim C^+(0,\zeta), \quad h \ge 2,
-}
-
-with
-
-\deqn{
-\eta_h = \prod_{\ell=1}^h \tilde{\eta}_\ell.
-}
-
-Simulation is performed on the log scale for numerical stability.
-}
-\examples{
-set.seed(1)
-x <- rmhcp(n = 5, d = 10, zeta = 0.7)
-x
-
+The process is defined by eta_1 = 1 and, for h >= 2,
+eta_h = eta_(h-1) * tilde_eta_h, where the multiplicative
+increments follow a half-Cauchy distribution with scale zeta.
 }
