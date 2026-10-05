@@ -1,49 +1,18 @@
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+<!-- README.md is generated from README.Rmd. Please edit README.Rmd -->
 
 # mhcp
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-**`mhcp`** provides tools for simulation, probabilistic calibration, and
-effective-dimension analysis of the **multiplicative half-Cauchy process
+**mhcp** is an R package for simulation, probabilistic calibration, and
+effective-dimension analysis of the **Multiplicative Half-Cauchy Process
 (MHCP)**.
 
-The MHCP is an ordered shrinkage process defined by
-
-$$
-\eta_h = \prod_{\ell=1}^{h}\widetilde{\eta}_\ell,
-$$
-
-where
-
-$$
-\widetilde{\eta}_1 = 1,
-\qquad
-\widetilde{\eta}_h \sim C^+(0,\zeta),
-\quad h \geq 2.
-$$
-
-On the log scale,
-
-$$
-\log \eta_h
-=
-(h-1)\log\zeta
-+
-\sum_{\ell=2}^{h}Y_\ell,
-$$
-
-where the centered increments $Y_\ell$ have density
-
-$$
-f_Y(y)=\frac{1}{\pi\cosh(y)}.
-$$
-
-This representation makes the MHCP useful as an ordered shrinkage prior:
-when $0<\zeta<1$, trajectories shrink toward zero almost surely while
-retaining the possibility of occasional large multiplicative excursions.
+The MHCP is an ordered shrinkage process with half-Cauchy multiplicative
+increments. When `0 < zeta < 1`, trajectories shrink toward zero almost
+surely while still allowing occasional large local excursions.
 
 The package accompanies the manuscript:
 
@@ -53,7 +22,7 @@ The package accompanies the manuscript:
 
 ## Installation
 
-You can install the development version of `mhcp` from GitHub with:
+Install the development version from GitHub:
 
 ``` r
 # install.packages("remotes")
@@ -68,9 +37,9 @@ library(mhcp)
 
 ## Quick start
 
-### Simulate an MHCP
+### Simulate the process
 
-Use `rmhcp()` to generate trajectories from the process.
+Generate five independent MHCP trajectories with 20 ordered components:
 
 ``` r
 set.seed(123)
@@ -91,14 +60,11 @@ round(eta[, 1:6], 3)
     ## [4,]     1 0.270 1.157  3.488  4.068  0.051
     ## [5,]     1 0.132 0.676  0.159  0.016  0.021
 
-Each row represents an independent trajectory and each column
-corresponds to an ordered component.
+The first component is fixed at 1. Subsequent components evolve
+multiplicatively.
 
-The first component satisfies $\eta_1=1$. Subsequent components are
-generated multiplicatively.
-
-For numerical work involving long trajectories, the process can also be
-returned directly on the log scale:
+For long trajectories, simulation can also be performed directly on the
+log scale:
 
 ``` r
 log_eta <- rmhcp(
@@ -109,80 +75,13 @@ log_eta <- rmhcp(
 )
 ```
 
-## Pathwise shrinkage
+## Probabilistic calibration
 
-A central property of the MHCP is
+A main feature of `mhcp` is probability-based calibration of the
+shrinkage parameter `zeta`.
 
-$$
-\eta_h^{1/(h-1)}
-\longrightarrow
-\zeta
-\qquad \text{almost surely}.
-$$
-
-Consequently,
-
-$$
-0<\zeta<1
-\quad\Longrightarrow\quad
-\eta_h\to0
-\qquad \text{almost surely}.
-$$
-
-Thus, $\zeta$ determines the long-run geometric rate of the process.
-
-Importantly, this does **not** mean that every realized trajectory is
-monotonically decreasing. The half-Cauchy increments allow occasional
-large upward movements.
-
-## Local multiplicative excursions
-
-The probability that the next component exceeds $c$ times the current
-component has the closed form
-
-$$
-P(\eta_h>c\eta_{h-1})
-=
-\frac{2}{\pi}
-\arctan\left(\frac{\zeta}{c}\right).
-$$
-
-The package evaluates this directly:
-
-``` r
-mhcp_excursion_prob(
-  zeta = 0.7,
-  c = c(1, 2, 5)
-)
-```
-
-    ## [1] 0.38880022 0.21433385 0.08855123
-
-For $\zeta=0.7$, this gives approximately
-
-$$
-P(\eta_h>\eta_{h-1})=0.389,
-$$
-
-while larger rebounds become progressively less likely.
-
-This illustrates an important feature of the MHCP:
-
-> **global shrinkage with local flexibility.**
-
-## Probability-based prior calibration
-
-One of the main purposes of `mhcp` is to translate an interpretable
-prior statement into a value of the shrinkage parameter $\zeta$.
-
-Suppose we want
-
-$$
-P(\eta_H\leq\varepsilon)=p.
-$$
-
-For example, suppose we want the scale of component 10 to be below
-$0.05$ with 90% prior probability:
+Suppose we want the 10th component to be below `0.05` with 90% prior
+probability.
 
 ``` r
 cal <- calibrate_mhcp(
@@ -197,19 +96,19 @@ cal
     ##    H epsilon   p        q     zeta method
     ## 1 10    0.05 0.9 5.966875 0.369411  exact
 
-The resulting value is approximately
+This gives approximately:
 
-$$
-\zeta \approx 0.369.
-$$
+``` text
+zeta = 0.369
+```
 
-Thus,
+In other words, this value of `zeta` is chosen so that
 
-$$
-P(\eta_{10}\leq0.05)\approx0.90.
-$$
+``` text
+P(eta_10 <= 0.05) = 0.90.
+```
 
-We can verify this directly:
+We can verify the calibration directly:
 
 ``` r
 pmhcp(
@@ -221,136 +120,39 @@ pmhcp(
 
     ## [1] 0.9
 
-This should return a value close to
+The result should be close to `0.90`.
 
-``` text
-0.90
-```
+This allows users to specify an interpretable prior statement rather
+than selecting `zeta` through trial and error.
 
-### Why this is useful
+## Local excursions
 
-Instead of choosing $\zeta$ through trial and error, the analyst can
-specify three interpretable quantities:
+Although the process shrinks globally when `zeta < 1`, individual
+components do not have to decrease monotonically.
 
-- $H$: the component at which shrinkage is desired,
-- $\varepsilon$: a practically negligible scale,
-- $p$: the desired prior probability of being below that scale.
-
-The package then determines the corresponding $\zeta$.
-
-The exact calibration is
-
-$$
-\zeta
-=
-\exp\left\{
-\frac{\log\varepsilon-q_{p,H}}{H-1}
-\right\},
-$$
-
-where $q_{p,H}$ is the $p$-quantile of the centered log process.
-
-## Exact and approximate calibration
-
-The centered log process
-
-$$
-Z_H=\sum_{\ell=2}^{H}Y_\ell
-$$
-
-has characteristic function
-
-$$
-\phi_{Z_H}(t)
-=
-\operatorname{sech}^{H-1}
-\left(\frac{\pi t}{2}\right).
-$$
-
-`mhcp` evaluates its distribution using characteristic-function
-inversion.
-
-For example:
+The probability that the next component exceeds `c` times the current
+component can be calculated directly:
 
 ``` r
-pmhcp_centered(
-  q = 0,
-  H = 10
+mhcp_excursion_prob(
+  zeta = 0.7,
+  c = c(1, 2, 5)
 )
 ```
 
-    ## [1] 0.5
+    ## [1] 0.38880022 0.21433385 0.08855123
 
-returns $0.5$, reflecting symmetry of the centered process.
+For `zeta = 0.7`, the probability of an immediate increase is about
+`0.389`.
 
-Its quantiles can be obtained using:
+Thus, the MHCP combines **global shrinkage with local flexibility**.
 
-``` r
-qmhcp_centered(
-  p = 0.90,
-  H = 10
-)
-```
+## Effective dimension
 
-    ## [1] 5.966875
+For a threshold `epsilon`, define the effective dimension as the number
+of components whose scale exceeds that threshold.
 
-which gives approximately
-
-$$
-q_{0.90,10}\approx5.967.
-$$
-
-For faster approximate calculations, `calibrate_mhcp()` also provides a
-normal approximation based on
-
-$$
-Z_H
-\approx
-N\left(
-0,
-\frac{(H-1)\pi^2}{4}
-\right).
-$$
-
-``` r
-calibrate_mhcp(
-  H = 10,
-  epsilon = 0.05,
-  p = 0.90,
-  method = "normal"
-)
-```
-
-    ##    H epsilon   p        q      zeta method
-    ## 1 10    0.05 0.9 6.039169 0.3664556 normal
-
-## Threshold-based effective dimension
-
-A calibration statement such as
-
-$$
-P(\eta_{10}\leq0.05)=0.90
-$$
-
-describes one selected component.
-
-To summarize the entire sequence, define the threshold-based effective
-dimension
-
-$$
-N_\varepsilon
-=
-\#\{h:\eta_h>\varepsilon\}.
-$$
-
-For $0<\zeta<1$,
-
-$$
-N_\varepsilon<\infty
-\qquad \text{almost surely}.
-$$
-
-The package numerically evaluates its expectation:
+The expected effective dimension can be calculated using:
 
 ``` r
 eff <- expected_mhcp_dimension(
@@ -363,92 +165,44 @@ eff$mean_effective_dimension
 
     ## [1] 4.752268
 
-For the calibration
-
-$$
-H=10,\qquad
-\varepsilon=0.05,\qquad
-p=0.90,
-$$
-
-the expected threshold-based effective dimension is approximately
-
-$$
-E(N_{0.05})\approx4.75.
-$$
-
-This provides a useful bridge between a local calibration statement and
-the global complexity implied by the prior.
-
-## Effect of the calibration probability
-
-The probability level $p$ controls how aggressively the process is
-shrunk.
-
-``` r
-p_values <- c(0.50, 0.75, 0.90)
-
-calibration_table <- do.call(
-  rbind,
-  lapply(
-    p_values,
-    function(p) {
-      calibrate_mhcp(
-        H = 10,
-        epsilon = 0.05,
-        p = p
-      )
-    }
-  )
-)
-
-calibration_table
-```
-
-    ##    H epsilon    p        q      zeta method
-    ## 1 10    0.05 0.50 0.000000 0.7168712  exact
-    ## 2 10    0.05 0.75 3.105284 0.5076867  exact
-    ## 3 10    0.05 0.90 5.966875 0.3694110  exact
-
-For $H=10$ and $\varepsilon=0.05$, the calibrated values are
+For the calibration above, the expected effective dimension is
 approximately:
 
-|  $p$ | $\zeta$ | $E(N_{0.05})$ |
-|-----:|--------:|--------------:|
-| 0.50 |   0.717 |         20.63 |
-| 0.75 |   0.508 |          7.60 |
-| 0.90 |   0.369 |          4.75 |
+``` text
+4.75
+```
 
-Higher values of $p$ correspond to stronger prior confidence that the
-target component is negligible and therefore imply more aggressive
-shrinkage.
+This connects a local probability statement about a selected component
+to the overall complexity implied by the shrinkage process.
 
-## Visualizing MHCP trajectories
+## Visualizing trajectories
 
-The following example illustrates the pathwise behavior of the process.
+The following example shows several trajectories on the log scale.
 
 ``` r
 set.seed(123)
 
 sim <- rmhcp(
-  n = 30,
+  n = 25,
   d = 30,
   zeta = 0.7,
   log = TRUE
 )
 
+h <- seq_len(ncol(sim))
+
 matplot(
-  x = seq_len(ncol(sim)),
-  y = t(sim),
+  h,
+  t(sim),
   type = "l",
   lty = 1,
-  xlab = "Component index h",
-  ylab = expression(log(eta[h]))
+  xlab = "Component index",
+  ylab = "log(eta)"
 )
 
 lines(
-  seq_len(ncol(sim)),
-  (seq_len(ncol(sim)) - 1) * log(0.7),
+  h,
+  (h - 1) * log(0.7),
   lwd = 3,
   lty = 2
 )
@@ -457,7 +211,7 @@ legend(
   "topright",
   legend = c(
     "Sample trajectories",
-    "Theoretical median"
+    "Theoretical log-median"
   ),
   lty = c(1, 2),
   lwd = c(1, 3),
@@ -465,44 +219,34 @@ legend(
 )
 ```
 
-![](README_files/figure-gfm/trajectories-1.png)<!-- -->
+<img src="README_files/figure-gfm/trajectories-1.png" alt="" width="768" />
 
-Individual trajectories can exhibit substantial local variation, but the
-long-run log-scale trend is governed by
-
-$$
-(h-1)\log\zeta.
-$$
+The individual trajectories can fluctuate substantially, while their
+long-run behavior is governed by the shrinkage parameter `zeta`.
 
 ## Main functions
 
-The current package interface is intentionally small.
+| Function                    | Purpose                                                |
+|:----------------------------|:-------------------------------------------------------|
+| `rmhcp()`                   | Simulate MHCP trajectories                             |
+| `pmhcp()`                   | Evaluate the distribution of a selected component      |
+| `pmhcp_centered()`          | Evaluate the centered log-process CDF                  |
+| `qmhcp_centered()`          | Compute centered log-process quantiles                 |
+| `calibrate_mhcp()`          | Calibrate `zeta` from a probability statement          |
+| `mhcp_excursion_prob()`     | Calculate local excursion probabilities                |
+| `expected_mhcp_dimension()` | Calculate expected threshold-based effective dimension |
 
-| Function                    | Purpose                                              |
-|:----------------------------|:-----------------------------------------------------|
-| `rmhcp()`                   | Simulate MHCP trajectories                           |
-| `pmhcp()`                   | Evaluate $P(\eta_H\leq x)$                           |
-| `pmhcp_centered()`          | Evaluate the CDF of the centered log process         |
-| `qmhcp_centered()`          | Compute centered log-process quantiles               |
-| `calibrate_mhcp()`          | Calibrate $\zeta$ from $P(\eta_H\leq\varepsilon)=p$  |
-| `mhcp_excursion_prob()`     | Compute local multiplicative excursion probabilities |
-| `expected_mhcp_dimension()` | Compute $E(N_\varepsilon)$                           |
-
-Individual help pages are available through R, for example:
+For example:
 
 ``` r
-?calibrate_mhcp
 ?rmhcp
+?calibrate_mhcp
 ?expected_mhcp_dimension
 ```
 
-## Reproducibility
+## Reproducing the worked example
 
-The numerical tools in this package are designed to reproduce the
-calibration and stochastic-process calculations described in the
-accompanying manuscript.
-
-To reproduce the main worked calibration:
+The main calibration example can be reproduced with:
 
 ``` r
 result <- calibrate_mhcp(
@@ -526,33 +270,38 @@ expected_mhcp_dimension(
 
     ## [1] 4.752268
 
+The expected results are approximately:
+
+``` text
+zeta             = 0.3694
+P(eta_10 <= .05) = 0.90
+E(N_0.05)        = 4.75
+```
+
 ## Citation
 
-If you use `mhcp` in research, please cite the accompanying manuscript:
+If you use `mhcp` in research, please cite:
 
 > Kulkarni, S. (2026). *Pathwise Shrinkage and Probabilistic Calibration
 > of the Multiplicative Half-Cauchy Process*. Manuscript in preparation.
 
-The package citation can also be displayed in R using:
+You can also obtain the package citation from R:
 
 ``` r
 citation("mhcp")
 ```
 
-The citation will be updated when the accompanying article receives its
-final bibliographic information.
+The citation information will be updated when the accompanying article
+receives its final bibliographic information.
 
 ## Development status
 
 `mhcp` is currently under active development.
 
-The current version focuses on the theoretical and computational tools
-needed for simulation, probabilistic prior calibration, excursion
-probabilities, and threshold-based effective-dimension analysis.
-
-Bug reports and suggestions are welcome through the GitHub issue
-tracker.
+Version `0.1.0` focuses on simulation, probabilistic calibration, local
+excursion probabilities, and threshold-based effective-dimension
+analysis.
 
 ## License
 
-`mhcp` is released under the MIT License.
+MIT
