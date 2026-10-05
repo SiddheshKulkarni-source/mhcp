@@ -1,19 +1,1166 @@
 ---
-title: "mhcp"
+title: "Introduction to the Multiplicative Half-Cauchy Process"
+author: "Siddhesh Kulkarni"
+date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{mhcp}
+  %\VignetteIndexEntry{Introduction to the Multiplicative Half-Cauchy Process}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+
+library(mhcp)
+```
+
+# Introduction
+
+The **Multiplicative Half-Cauchy Process (MHCP)** is an ordered
+shrinkage process designed for settings in which progressively indexed
+components should become smaller while retaining the possibility of
+occasional large local excursions.
+
+This type of behavior is useful in ordered latent representations, such
+as factor models, where early components may capture substantial signal
+while later components are increasingly shrunk toward zero.
+
+The `mhcp` package provides computational tools for:
+
+- simulating MHCP trajectories,
+- evaluating component-wise probabilities,
+- calibrating the global shrinkage parameter from interpretable
+  probability statements,
+- calculating local excursion probabilities, and
+- summarizing the implied threshold-based effective dimension.
+
+The package accompanies the manuscript:
+
+> **Pathwise Shrinkage and Probabilistic Calibration of the
+> Multiplicative Half-Cauchy Process**  
+> Siddhesh Kulkarni (2026)
+
+This vignette introduces the process and demonstrates the main package
+functions.
+
+# 1. Definition of the MHCP
+
+Let
+
+\[
+\widetilde{\eta}_1 = 1
+\]
+
+and, for \(h \geq 2\),
+
+\[
+\widetilde{\eta}_h \sim C^+(0,\zeta),
+\]
+
+independently, where \(C^+(0,\zeta)\) denotes a half-Cauchy distribution
+with scale parameter \(\zeta>0\).
+
+The multiplicative process is
+
+\[
+\eta_h
+=
+\prod_{\ell=1}^{h}\widetilde{\eta}_\ell.
+\]
+
+Because \(\widetilde{\eta}_1=1\),
+
+\[
+\eta_1=1.
+\]
+
+For \(h\geq2\),
+
+\[
+\eta_h
+=
+\eta_{h-1}\widetilde{\eta}_h.
+\]
+
+Thus each new scale is obtained by multiplying the previous scale by an
+independent half-Cauchy increment.
+
+The parameter \(\zeta\) controls the long-run shrinkage behavior of the
+process.
+
+# 2. Simulation
+
+The function `rmhcp()` simulates independent trajectories from the
+process.
+
+For example:
+
+```{r simulate-basic}
+set.seed(123)
+
+eta <- rmhcp(
+  n = 5,
+  d = 10,
+  zeta = 0.7
+)
+
+round(eta, 3)
+```
+
+Each row corresponds to an independent trajectory, while the columns
+correspond to the ordered components
+
+\[
+\eta_1,\eta_2,\ldots,\eta_{10}.
+\]
+
+The first column is always equal to 1.
+
+The process is not required to decrease at every step. Even when
+\(\zeta<1\), individual half-Cauchy increments can exceed 1 and produce
+temporary upward movements.
+
+This distinction between **local behavior** and **long-run behavior** is
+central to the MHCP.
+
+# 3. Working on the log scale
+
+Multiplicative processes are particularly convenient to study after
+taking logarithms.
+
+Write
+
+\[
+\widetilde{\eta}_h=\zeta U_h,
+\]
+
+where
+
+\[
+U_h\sim C^+(0,1).
+\]
+
+Define
+
+\[
+Y_h=\log U_h.
+\]
+
+Then
+
+\[
+\log\widetilde{\eta}_h
+=
+\log\zeta+Y_h,
+\]
+
+and therefore
+
+\[
+\log\eta_h
+=
+(h-1)\log\zeta
++
+\sum_{\ell=2}^{h}Y_\ell.
+\]
+
+The multiplicative process has therefore become an additive stochastic
+process on the log scale.
+
+The package can simulate directly on this scale:
+
+```{r simulate-log}
+set.seed(123)
+
+log_eta <- rmhcp(
+  n = 5,
+  d = 10,
+  zeta = 0.7,
+  log = TRUE
+)
+
+round(log_eta, 3)
+```
+
+Working on the log scale is also numerically useful for long
+trajectories.
+
+# 4. Distribution of the log increments
+
+For a standard half-Cauchy random variable \(U\),
+
+\[
+f_U(u)
+=
+\frac{2}{\pi(1+u^2)},
+\qquad u>0.
+\]
+
+With
+
+\[
+Y=\log U,
+\]
+
+the change of variables \(u=e^y\) gives
+
+\[
+f_Y(y)
+=
+\frac{1}{\pi\cosh(y)},
+\qquad -\infty<y<\infty.
+\]
+
+This distribution is symmetric around zero.
+
+Consequently,
+
+\[
+E(Y)=0
+\]
+
+and
+
+\[
+\operatorname{Var}(Y)
+=
+\frac{\pi^2}{4}.
+\]
+
+It follows that
+
+\[
+E(\log\eta_h)
+=
+(h-1)\log\zeta
+\]
+
+and
+
+\[
+\operatorname{Var}(\log\eta_h)
+=
+(h-1)\frac{\pi^2}{4}.
+\]
+
+The characteristic function of \(Y\) is
+
+\[
+\phi_Y(t)
+=
+\operatorname{sech}\left(\frac{\pi t}{2}\right).
+\]
+
+These properties provide the basis for the exact probability
+calculations implemented in `mhcp`.
+
+# 5. Median behavior
+
+Because the log increments \(Y_h\) are symmetric around zero, the
+centered sum
+
+\[
+\sum_{\ell=2}^{h}Y_\ell
+\]
+
+has median zero.
+
+Therefore,
+
+\[
+\operatorname{Med}(\log\eta_h)
+=
+(h-1)\log\zeta,
+\]
+
+and hence
+
+\[
+\operatorname{Med}(\eta_h)
+=
+\zeta^{h-1}.
+\]
+
+Thus \(\zeta\) has a direct interpretation as the geometric rate of the
+median trajectory.
+
+For example, when \(\zeta=0.7\),
+
+\[
+\operatorname{Med}(\eta_h)
+=
+0.7^{h-1}.
+\]
+
+# 6. Pathwise shrinkage
+
+The log-scale representation also reveals the long-run behavior of the
+process.
+
+Since the \(Y_h\)'s are independent and have finite mean zero, the
+strong law of large numbers gives
+
+\[
+\frac{1}{h-1}
+\sum_{\ell=2}^{h}Y_\ell
+\longrightarrow
+0
+\qquad\text{almost surely}.
+\]
+
+Therefore,
+
+\[
+\frac{\log\eta_h}{h-1}
+\longrightarrow
+\log\zeta
+\qquad\text{almost surely}.
+\]
+
+Equivalently,
+
+\[
+\eta_h^{1/(h-1)}
+\longrightarrow
+\zeta
+\qquad\text{almost surely}.
+\]
+
+This produces three regimes.
+
+If
+
+\[
+0<\zeta<1,
+\]
+
+then
+
+\[
+\eta_h\longrightarrow0
+\qquad\text{almost surely}.
+\]
+
+If
+
+\[
+\zeta>1,
+\]
+
+then
+
+\[
+\eta_h\longrightarrow\infty
+\qquad\text{almost surely}.
+\]
+
+The boundary case \(\zeta=1\) corresponds to a zero-drift random walk on
+the log scale and does not produce systematic shrinkage.
+
+For shrinkage applications, the primary regime of interest is therefore
+
+\[
+0<\zeta<1.
+\]
+
+# 7. Visualizing pathwise behavior
+
+The following simulation illustrates the shrinking regime.
+
+```{r pathwise-plot}
+set.seed(123)
+
+zeta <- 0.7
+d <- 40
+
+sim <- rmhcp(
+  n = 25,
+  d = d,
+  zeta = zeta,
+  log = TRUE
+)
+
+h <- seq_len(d)
+
+matplot(
+  h,
+  t(sim),
+  type = "l",
+  lty = 1,
+  xlab = "Component index h",
+  ylab = "log(eta_h)"
+)
+
+lines(
+  h,
+  (h - 1) * log(zeta),
+  lwd = 3,
+  lty = 2
+)
+
+legend(
+  "topright",
+  legend = c(
+    "Sample trajectories",
+    "Theoretical log-median"
+  ),
+  lty = c(1, 2),
+  lwd = c(1, 3),
+  bty = "n"
 )
 ```
 
-```{r setup}
-library(mhcp)
+Individual trajectories can fluctuate considerably. Nevertheless, their
+long-run geometric rate is governed by \(\zeta\).
+
+This is the sense in which the MHCP combines **local flexibility with
+global shrinkage**.
+
+# 8. Local multiplicative excursions
+
+Because
+
+\[
+\frac{\eta_h}{\eta_{h-1}}
+=
+\widetilde{\eta}_h,
+\]
+
+the probability of a local multiplicative excursion has a simple closed
+form.
+
+For \(c>0\),
+
+\[
+P(\eta_h>c\eta_{h-1})
+=
+P(\widetilde{\eta}_h>c)
+=
+\frac{2}{\pi}
+\arctan\left(\frac{\zeta}{c}\right).
+\]
+
+The package evaluates this probability using
+`mhcp_excursion_prob()`.
+
+For example:
+
+```{r excursion-example}
+mhcp_excursion_prob(
+  zeta = 0.7,
+  c = c(1, 2, 5)
+)
 ```
+
+For \(\zeta=0.7\), the probabilities are approximately:
+
+```text
+c = 1:  0.389
+c = 2:  0.214
+c = 5:  0.089
+```
+
+Thus, even though the process converges toward zero almost surely when
+\(\zeta=0.7\), there remains substantial probability of local upward
+movement.
+
+Almost-sure shrinkage therefore should not be interpreted as
+step-by-step monotonic shrinkage.
+
+# 9. Distribution of a selected component
+
+Define the centered log process
+
+\[
+Z_H
+=
+\sum_{\ell=2}^{H}Y_\ell.
+\]
+
+Then
+
+\[
+\log\eta_H
+=
+(H-1)\log\zeta+Z_H.
+\]
+
+Since the increments are independent,
+
+\[
+\phi_{Z_H}(t)
+=
+\left[
+\operatorname{sech}
+\left(
+\frac{\pi t}{2}
+\right)
+\right]^{H-1}.
+\]
+
+The package evaluates the distribution of \(Z_H\) numerically using
+characteristic-function inversion.
+
+For example, symmetry implies
+
+\[
+P(Z_H\leq0)=0.5.
+\]
+
+We can verify this using:
+
+```{r centered-cdf}
+pmhcp_centered(
+  q = 0,
+  H = 10
+)
+```
+
+The result is approximately `0.5`.
+
+A selected quantile can be obtained with:
+
+```{r centered-quantile}
+qmhcp_centered(
+  p = 0.90,
+  H = 10
+)
+```
+
+For \(H=10\), the 90th percentile is approximately
+
+\[
+q_{0.90,10}
+\approx
+5.967.
+\]
+
+# 10. Component probabilities
+
+The function `pmhcp()` evaluates probabilities for the original
+multiplicative process.
+
+For example:
+
+```{r component-cdf}
+pmhcp(
+  x = 0.05,
+  H = 10,
+  zeta = 0.369411
+)
+```
+
+This is approximately `0.90`.
+
+Thus a value near
+
+\[
+\zeta=0.3694
+\]
+
+implies that the 10th component is below \(0.05\) with approximately
+90% prior probability.
+
+# 11. Probability-based calibration
+
+Rather than choosing \(\zeta\) through trial and error, the MHCP can be
+calibrated from an interpretable prior statement.
+
+Suppose an analyst specifies
+
+\[
+P(\eta_H\leq\varepsilon)=p.
+\]
+
+Let \(q_{p,H}\) denote the \(p\)-quantile of \(Z_H\).
+
+Because
+
+\[
+\log\eta_H
+=
+(H-1)\log\zeta+Z_H,
+\]
+
+the calibration equation gives
+
+\[
+\zeta
+=
+\exp
+\left\{
+\frac{
+\log\varepsilon-q_{p,H}
+}{
+H-1
+}
+\right\}.
+\]
+
+The function `calibrate_mhcp()` performs this calculation.
+
+For example, suppose we want
+
+\[
+P(\eta_{10}\leq0.05)=0.90.
+\]
+
+Use:
+
+```{r calibration-example}
+cal90 <- calibrate_mhcp(
+  H = 10,
+  epsilon = 0.05,
+  p = 0.90
+)
+
+cal90
+```
+
+The resulting value is approximately
+
+\[
+\zeta=0.3694.
+\]
+
+We can verify the result:
+
+```{r calibration-verification}
+pmhcp(
+  x = 0.05,
+  H = 10,
+  zeta = cal90$zeta
+)
+```
+
+which returns approximately `0.90`.
+
+This is one of the main practical advantages of the MHCP formulation:
+the hyperparameter can be connected directly to an interpretable prior
+probability.
+
+# 12. Median calibration
+
+An especially simple case occurs when
+
+\[
+p=0.5.
+\]
+
+Because the centered distribution is symmetric,
+
+\[
+q_{0.5,H}=0.
+\]
+
+Therefore,
+
+\[
+\zeta
+=
+\varepsilon^{1/(H-1)}.
+\]
+
+For example:
+
+```{r median-calibration}
+cal50 <- calibrate_mhcp(
+  H = 10,
+  epsilon = 0.05,
+  p = 0.50
+)
+
+cal50
+```
+
+Compare this with the closed-form calculation:
+
+```{r median-check}
+0.05^(1 / 9)
+```
+
+The two values agree.
+
+# 13. Comparing calibration probabilities
+
+Consider three different prior probability statements for the same
+target component and threshold.
+
+```{r calibration-comparison}
+probabilities <- c(0.50, 0.75, 0.90)
+
+calibrations <- do.call(
+  rbind,
+  lapply(
+    probabilities,
+    function(prob) {
+      calibrate_mhcp(
+        H = 10,
+        epsilon = 0.05,
+        p = prob
+      )
+    }
+  )
+)
+
+calibrations
+```
+
+The calibrated values are approximately:
+
+| Probability \(p\) | Calibrated \(\zeta\) |
+|:-----------------:|:---------------------:|
+| 0.50 | 0.717 |
+| 0.75 | 0.508 |
+| 0.90 | 0.369 |
+
+As the desired probability increases, the calibrated value of \(\zeta\)
+decreases.
+
+This makes sense: stronger prior confidence that component \(H\) should
+be negligible requires stronger shrinkage.
+
+# 14. Normal approximation
+
+The centered log process also satisfies a central limit theorem.
+
+Because
+
+\[
+E(Y_h)=0
+\]
+
+and
+
+\[
+\operatorname{Var}(Y_h)=\frac{\pi^2}{4},
+\]
+
+we have
+
+\[
+\frac{
+Z_H
+}{
+(\pi/2)\sqrt{H-1}
+}
+\Longrightarrow
+N(0,1).
+\]
+
+This provides an approximate calibration method for sufficiently large
+\(H\).
+
+The package exposes this through:
+
+```{r normal-calibration}
+calibrate_mhcp(
+  H = 10,
+  epsilon = 0.05,
+  p = 0.90,
+  method = "normal"
+)
+```
+
+The default is
+
+```r
+method = "exact"
+```
+
+which uses numerical inversion of the exact characteristic function.
+
+For routine calibration, the exact method is recommended when
+computationally convenient.
+
+# 15. Fractional moments
+
+The half-Cauchy distribution does not possess an ordinary first moment.
+
+However, fractional moments exist.
+
+For
+
+\[
+-1<q<1,
+\]
+
+a standard half-Cauchy random variable \(U\) satisfies
+
+\[
+E(U^q)
+=
+\sec\left(\frac{\pi q}{2}\right).
+\]
+
+Consequently,
+
+\[
+E(\eta_h^q)
+=
+\zeta^{q(h-1)}
+\left[
+\sec\left(\frac{\pi q}{2}\right)
+\right]^{h-1}.
+\]
+
+Equivalently,
+
+\[
+E(\eta_h^q)
+=
+\left[
+\zeta^q
+\sec\left(\frac{\pi q}{2}\right)
+\right]^{h-1}.
+\]
+
+These fractional moments are useful for establishing summability and
+effective-dimension properties even though ordinary moments such as
+\(E(\eta_h)\) are infinite.
+
+This illustrates an important distinction: strong pathwise shrinkage
+can coexist with heavy marginal tails.
+
+# 16. Almost-sure summability
+
+When \(0<\zeta<1\), the pathwise convergence is strong enough to imply
+that, for every \(r>0\),
+
+\[
+\sum_{h=1}^{\infty}\eta_h^r
+<
+\infty
+\qquad\text{almost surely}.
+\]
+
+Thus, although occasional large local excursions remain possible, a
+typical infinite trajectory eventually shrinks rapidly enough to be
+summable.
+
+This provides a useful theoretical justification for interpreting the
+MHCP as an ordered shrinkage mechanism.
+
+# 17. Threshold-based effective dimension
+
+For a practical threshold \(\varepsilon>0\), define
+
+\[
+N_\varepsilon
+=
+\#\{h:\eta_h>\varepsilon\}.
+\]
+
+This counts the number of components whose scales exceed a
+user-specified threshold.
+
+When \(0<\zeta<1\),
+
+\[
+N_\varepsilon<\infty
+\qquad\text{almost surely}.
+\]
+
+For \(\varepsilon<1\),
+
+\[
+E(N_\varepsilon)
+=
+1+
+\sum_{h=2}^{\infty}
+P(\eta_h>\varepsilon).
+\]
+
+Equivalently,
+
+\[
+E(N_\varepsilon)
+=
+1+
+\sum_{h=2}^{\infty}
+\left[
+1-
+F_h
+\left\{
+\log\varepsilon-(h-1)\log\zeta
+\right\}
+\right],
+\]
+
+where \(F_h\) denotes the CDF of the centered log process at component
+\(h\).
+
+The package evaluates this quantity numerically using
+`expected_mhcp_dimension()`.
+
+# 18. Effective dimension after calibration
+
+Consider again the calibration
+
+\[
+P(\eta_{10}\leq0.05)=0.90.
+\]
+
+We obtained approximately
+
+\[
+\zeta=0.3694.
+\]
+
+The corresponding expected effective dimension is:
+
+```{r effective-dimension}
+eff90 <- expected_mhcp_dimension(
+  zeta = cal90$zeta,
+  epsilon = 0.05
+)
+
+eff90$mean_effective_dimension
+```
+
+The result is approximately
+
+\[
+E(N_{0.05})=4.75.
+\]
+
+Thus the local calibration statement about component 10 implies a
+global prior in which approximately 4.75 components, on average, remain
+above the threshold \(0.05\).
+
+# 19. Calibration and effective dimension together
+
+The relationship can be illustrated for several probability levels.
+
+```{r calibration-effective-dimension}
+probabilities <- c(0.50, 0.75, 0.90)
+
+results <- do.call(
+  rbind,
+  lapply(
+    probabilities,
+    function(prob) {
+
+      cal <- calibrate_mhcp(
+        H = 10,
+        epsilon = 0.05,
+        p = prob
+      )
+
+      eff <- expected_mhcp_dimension(
+        zeta = cal$zeta,
+        epsilon = 0.05
+      )
+
+      data.frame(
+        p = prob,
+        zeta = cal$zeta,
+        expected_dimension = eff$mean_effective_dimension
+      )
+    }
+  )
+)
+
+results
+```
+
+The approximate results are:
+
+| \(p\) | \(\zeta\) | \(E(N_{0.05})\) |
+|:---:|:---:|:---:|
+| 0.50 | 0.717 | 20.63 |
+| 0.75 | 0.508 | 7.60 |
+| 0.90 | 0.369 | 4.75 |
+
+Increasing the desired probability of negligible scale at component 10
+therefore leads to both a smaller calibrated \(\zeta\) and a smaller
+expected effective dimension.
+
+# 20. A complete workflow
+
+A typical MHCP analysis can be organized in four steps.
+
+## Step 1: Specify an interpretable prior statement
+
+Choose:
+
+- a component \(H\),
+- a practically negligible threshold \(\varepsilon\), and
+- a desired probability \(p\).
+
+For example:
+
+```{r workflow-parameters}
+H <- 10
+epsilon <- 0.05
+p <- 0.90
+```
+
+## Step 2: Calibrate the shrinkage parameter
+
+```{r workflow-calibration}
+cal <- calibrate_mhcp(
+  H = H,
+  epsilon = epsilon,
+  p = p
+)
+
+cal
+```
+
+## Step 3: Examine the implied effective dimension
+
+```{r workflow-dimension}
+eff <- expected_mhcp_dimension(
+  zeta = cal$zeta,
+  epsilon = epsilon
+)
+
+eff$mean_effective_dimension
+```
+
+## Step 4: Simulate trajectories from the calibrated prior
+
+```{r workflow-simulation}
+set.seed(2026)
+
+prior_paths <- rmhcp(
+  n = 20,
+  d = 30,
+  zeta = cal$zeta,
+  log = TRUE
+)
+
+matplot(
+  seq_len(ncol(prior_paths)),
+  t(prior_paths),
+  type = "l",
+  lty = 1,
+  xlab = "Component index h",
+  ylab = "log(eta_h)"
+)
+```
+
+This workflow allows the analyst to examine the practical implications
+of a probability-based calibration before fitting a larger Bayesian
+model.
+
+# 21. Main package functions
+
+The primary user-facing functions are:
+
+| Function | Description |
+|:---|:---|
+| `rmhcp()` | Simulate MHCP trajectories |
+| `pmhcp()` | Evaluate \(P(\eta_H\leq x)\) |
+| `pmhcp_centered()` | Evaluate the centered log-process CDF |
+| `qmhcp_centered()` | Calculate centered log-process quantiles |
+| `calibrate_mhcp()` | Calibrate \(\zeta\) from \(P(\eta_H\leq\varepsilon)=p\) |
+| `mhcp_excursion_prob()` | Calculate local multiplicative excursion probabilities |
+| `expected_mhcp_dimension()` | Calculate expected threshold-based effective dimension |
+
+Help pages can be accessed using, for example:
+
+```r
+?rmhcp
+?calibrate_mhcp
+?expected_mhcp_dimension
+```
+
+# 22. Interpretation
+
+The MHCP is designed to provide two properties that can otherwise be
+difficult to combine.
+
+First, it provides **global ordered shrinkage**. When \(0<\zeta<1\), the
+process converges toward zero almost surely at a geometric rate governed
+by \(\zeta\).
+
+Second, it retains **local flexibility**. Individual multiplicative
+increments can be large, allowing later components to temporarily
+increase rather than enforcing deterministic or monotone shrinkage.
+
+Probability-based calibration makes this behavior interpretable.
+Instead of selecting \(\zeta\) as an abstract tuning parameter, an
+analyst can specify a statement such as
+
+\[
+P(\eta_{10}\leq0.05)=0.90
+\]
+
+and calculate the corresponding prior.
+
+The threshold-based effective dimension then provides a complementary
+global summary of the resulting shrinkage behavior.
+
+# 23. Reproducibility
+
+The principal numerical example in the accompanying manuscript can be
+reproduced with:
+
+```{r final-reproducibility}
+p_values <- c(0.50, 0.75, 0.90)
+
+reproduction <- do.call(
+  rbind,
+  lapply(
+    p_values,
+    function(prob) {
+
+      cal <- calibrate_mhcp(
+        H = 10,
+        epsilon = 0.05,
+        p = prob
+      )
+
+      eff <- expected_mhcp_dimension(
+        zeta = cal$zeta,
+        epsilon = 0.05
+      )
+
+      data.frame(
+        p = prob,
+        q = cal$q,
+        zeta = cal$zeta,
+        expected_dimension = eff$mean_effective_dimension
+      )
+    }
+  )
+)
+
+reproduction
+```
+
+The expected values are approximately:
+
+| \(p\) | \(q_{p,10}\) | \(\zeta\) | \(E(N_{0.05})\) |
+|:---:|:---:|:---:|:---:|
+| 0.50 | 0.000 | 0.717 | 20.63 |
+| 0.75 | 3.105 | 0.508 | 7.60 |
+| 0.90 | 5.967 | 0.369 | 4.75 |
+
+Small differences in the final displayed digits may occur because the
+distribution and infinite-series calculations are evaluated
+numerically.
+
+# Citation
+
+If you use `mhcp` in research, please cite:
+
+> Kulkarni, S. (2026). *Pathwise Shrinkage and Probabilistic Calibration
+> of the Multiplicative Half-Cauchy Process*. Manuscript in preparation.
+
+Package citation information can also be obtained using:
+
+```r
+citation("mhcp")
+```
+
+The citation will be updated when final bibliographic information for
+the accompanying article becomes available.
